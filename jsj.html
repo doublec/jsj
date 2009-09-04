@@ -208,6 +208,11 @@ var primitives = {
                          
                        return new ListToken([n1.value,n2.value]);
                      }),
+  "#": new VerbToken("#",
+		     function(n1) {
+                       return new NumberToken(n1.isList() ? n1.value.length : 1);
+                     },
+                     null),
   "+": new VerbToken("+",
                      null,
 		     function(n1, n2) {
@@ -240,6 +245,7 @@ var primitives = {
 }
 
 primitives[","].dApply = ApplyToken.prototype.dApply;
+primitives["#"].mApply = ApplyToken.prototype.mApply;
 
 function tokenize(s) {
   var tokens = [new MarkToken()];
@@ -291,6 +297,7 @@ function tokenize(s) {
                           s[0] == '-' ||
                           s[0] == '*' ||
                           s[0] == ',' ||
+                          s[0] == '#' ||
                           s[0] == '%')) {
       tokens.push(primitives[s[0]]);
       s = s.substr(1, s.length - 1);
@@ -422,10 +429,13 @@ function checkRules(queue, stack) {
       var func = function(noun) {
         if (f.isNoun())
           return g.dApply(f, h.mApply(noun));
-        else
+        else {
           return g.dApply(f.mApply(noun), h.mApply(noun));
+        }
       }
-      stack.splice(1,3, new VerbToken(stack[1].value + " " + stack[2].value + " " + stack[3].value, func));
+      var t = new VerbToken(stack[1].value + " " + stack[2].value + " " + stack[3].value, func);
+      t.mApply = ApplyToken.prototype.mApply;
+      stack.splice(1,3, t);
       return "trident";
     }
 
