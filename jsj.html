@@ -1,0 +1,590 @@
+<html>
+  <head>
+    <script src="jquery-1.3.1.js" type="text/javascript"></script>
+    <script src="bignumber.js" type="text/javascript"></script>
+  </head>
+  <body>
+    <script type="text/javascript">
+
+function Token() {
+  this.value = null;
+  return this;
+}
+
+Token.prototype.toString      = function() {  return this.value; }
+Token.prototype.isMark        = function() {  return false; }
+Token.prototype.isAssignment  = function() {  return false; }
+Token.prototype.isNoun        = function() {  return false; }
+Token.prototype.isAdverb      = function() {  return false; }
+Token.prototype.isVerb        = function() {  return false; }
+Token.prototype.isConjunction = function() {  return false; }
+Token.prototype.isName        = function() {  return false; }
+Token.prototype.isLeftParen   = function() {  return false; }
+Token.prototype.isRightParen  = function() {  return false; }
+Token.prototype.isList        = function() {  return false; }
+Token.prototype.isNumber      = function() {  return false; }
+Token.prototype.isEdge        = function() {  return this.isMark() || this.isAssignment() || this.isLeftParen(); }
+Token.prototype.isEavn        = function() {  return this.isEdge() || this.isAdverb() || this.isVerb() || this.isNoun(); }
+Token.prototype.isVn          = function() {  return this.isVerb() || this.isNoun(); }
+Token.prototype.isCavn        = function() {  return this.isConjunction() || this.isAdverb() || this.isVerb() || this.isNoun(); }
+Token.prototype.isNN          = function() {  return this.isNoun() || this.isName(); }
+
+function MarkToken() {
+  this.value = "<mark>";
+  return this;
+}
+
+MarkToken.prototype = new Token();
+MarkToken.prototype.toString      = function() {  return "{mark}"; }
+MarkToken.prototype.isMark        = function() {  return true; }
+
+function AssignmentToken(value) {
+  this.value = value;
+  return this;
+}
+
+AssignmentToken.prototype = new Token();
+AssignmentToken.prototype.isAssignment  = function() {  return true; }
+
+function LeftParenToken() {
+  this.value = "(";
+  return this;
+}
+
+LeftParenToken.prototype = new Token();
+LeftParenToken.prototype.isLeftParen   = function() {  return true; }
+
+function RightParenToken() {
+  this.value = ")";
+  return this;
+}
+
+RightParenToken.prototype = new Token();
+RightParenToken.prototype.isRightParen  = function() {  return true; }
+
+function ListToken(value) {
+  this.value = value;
+  return this;
+}
+
+ListToken.prototype = new Token();
+ListToken.prototype.toString      = function() {  
+  var s = [];
+  for(var i = 0;i < this.value.length; ++i) {
+    s.push(this.value[i].toString());
+  }
+  return s.join(" ");
+}
+ListToken.prototype.isNoun        = function() {  return true; }
+ListToken.prototype.isList        = function() {  return true; }
+
+function NumberToken(value) {
+  this.value = value;
+  return this;
+}
+
+NumberToken.prototype = new Token();
+NumberToken.prototype.isNoun        = function() {  return true; }
+NumberToken.prototype.isNumber      = function() {  return true; }
+
+function NameToken(value) {
+  this.value = value;
+  return this;
+}
+
+NameToken.prototype = new Token();
+
+NameToken.prototype.mApply = function(noun) {
+  return primitives[this.value].mApply(noun);
+}
+
+NameToken.prototype.dApply = function(noun1, noun2) {
+  return primitives[this.value].dApply(noun1, noun2);
+}
+NameToken.prototype.isName = function() {  return true; }
+NameToken.prototype.isVerb = function() {  
+  if (!primitives[this.value])
+    return true;
+  return primitives[this.value].isVerb();
+}
+NameToken.prototype.isNoun = function() {  
+  if (!primitives[this.value])
+    return false;
+  return primitives[this.value].isNoun();
+}
+
+function ApplyToken() {
+  return this;
+}
+
+ApplyToken.prototype = new Token();
+ApplyToken.prototype.mApply = function(noun) {
+  return this.monad(noun);
+}
+
+ApplyToken.prototype.dApply = function(noun1, noun2) {
+  return this.dyad(noun1, noun2);
+}
+
+function VerbToken(name, monad, dyad) {
+  this.value = name;
+  this.monad = monad;
+  this.dyad = dyad;
+  return this;
+}
+
+VerbToken.prototype = new Token();
+VerbToken.prototype.mApply = function(noun) {
+  if (noun.isList()) {
+    var r = [];
+    for(var i=0; i < noun.value.length; ++i)
+      r.push(this.monad(noun.value[i]));
+    return new ListToken(r);
+  } 
+  return this.monad(noun);
+}
+
+VerbToken.prototype.dApply = function(noun1, noun2) {
+  if (noun1.isNumber() && noun2.isNumber()) 
+    return this.dyad(noun1, noun2);
+  if (noun1.isList() && noun2.isNumber()) {
+    var r = [];
+    for(var i=0; i < noun1.value.length; ++i)
+      r.push(this.dyad(noun1.value[i], noun2));
+    return new ListToken(r);
+  }
+  if (noun2.isList() && noun1.isNumber()) {
+    var r = [];
+    for(var i=0; i < noun2.value.length; ++i)
+      r.push(this.dyad(noun1, noun2.value[i]));
+    return new ListToken(r);
+  }
+  if (noun1.isList() && noun2.isList()) {
+    var r = [];
+    for(var i=0; i < noun1.value.length; ++i)
+      r.push(this.dyad(noun1.value[i],  noun2.value[i]));
+    return new ListToken(r);
+  }
+  
+  return this.dyad(noun1, noun2);
+}
+
+VerbToken.prototype.isVerb        = function() {  return true; }
+
+function AdverbToken(name, func) {
+  this.value = name;
+  this.monad = func;
+  return this;
+}
+
+AdverbToken.prototype = new ApplyToken();
+AdverbToken.prototype.isAdverb      = function() {  return true; }
+
+function ConjunctionToken(name, func) {
+  this.value = name;
+  this.dyad = func;
+  return this;
+}
+
+ConjunctionToken.prototype = new ApplyToken();
+ConjunctionToken.prototype.isConjunction = function() {  return true; }
+
+var primitives = {
+  ",": new VerbToken(",",
+                     null,
+		     function(n1, n2) {
+                       if (n1.isList() && n2.isList())
+                         return new ListToken(n1.value.concat(n2.value));
+                       if (n1.isList() && !n2.isList()) {
+                         var l = new ListToken(n1.value.slice(0));
+                         l.value.push(n2.value);
+                         return l;
+                       }
+                       if (!n1.isList() && n2.isList()) {
+                         var l = new ListToken(n2.value.slice(0));
+                         l.value.unshift(n1.value);
+                         return l;
+                       }
+                         
+                       return new ListToken([n1.value,n2.value]);
+                     }),
+  "+": new VerbToken("+",
+                     null,
+		     function(n1, n2) {
+                       return new NumberToken(n1.value + n2.value);
+                     }),
+  "-": new VerbToken("-",
+                     function(n1) {
+                       return new NumberToken(-n1.value);
+                     },
+		     function(n1, n2) {
+                       return new NumberToken(n1.value - n2.value);
+                     }),
+  "*": new VerbToken("*",
+                     null,
+		     function(n1, n2) {
+                       return new NumberToken(n1.value * n2.value);
+                     }),
+  "*:": new VerbToken("*:",
+		     function(n1) {
+                       return new NumberToken(n1.value * n1.value);
+                     },
+                     null),
+  "%": new VerbToken("%",
+		     function(n1) {
+                       return new NumberToken(1.0 / n1.value);
+                     },
+		     function(n1, n2) {
+                       return new NumberToken(n1.value / n2.value);
+                     })
+}
+
+primitives[","].dApply = ApplyToken.prototype.dApply;
+
+function tokenize(s) {
+  var tokens = [new MarkToken()];
+  while (s.length > 0) {
+    var object;
+    var token
+    if (s.search(/[0-9]+/) == 0) {
+      token = s.match(/[0-9]+/);
+      object = token[0];
+      s = s.substr(object.length, s.length - object.length);
+      var num = new NumberToken(parseFloat(object));
+      if (tokens.length == 0 || 
+          (!tokens[tokens.length-1].isNumber() && 
+           !tokens[tokens.length-1].isList())) {
+        tokens.push(num);
+      }
+      else if (tokens.length > 0 && tokens[tokens.length-1].isNumber()) {
+        tokens[tokens.length-1] = new ListToken([tokens[tokens.length-1], num]);
+      }
+      else if (tokens.length > 0 && tokens[tokens.length-1].isList()) {
+        tokens[tokens.length-1].value.push(num);
+      }
+      continue;
+    }
+    if (s.search(/[a-zA-Z]+/) == 0) {
+      token = s.match(/[a-zA-Z]+/);
+      object = token[0];
+      s = s.substr(object.length, s.length - object.length);
+      tokens.push(new NameToken(object));
+      continue;
+    }
+
+    if (s.search(/=\.|=:/) == 0) {
+      token = s.match(/=\.|=:/);
+      object = token[0];
+      s = s.substr(object.length, s.length - object.length);
+      tokens.push(new AssignmentToken(object));
+      continue;
+    }
+
+
+    if (s.length >= 2 && s[0] == '*' && s[1] == ':') {
+      tokens.push(primitives[s[0]+s[1]]);
+      s = s.substr(2, s.length - 1);
+      continue;
+    }
+
+    if (s.length >= 1 && (s[0] == '+' ||
+                          s[0] == '-' ||
+                          s[0] == '*' ||
+                          s[0] == ',' ||
+                          s[0] == '%')) {
+      tokens.push(primitives[s[0]]);
+      s = s.substr(1, s.length - 1);
+      continue;
+    }
+
+    if (s.length >= 1 && s[0] == '/') {
+      s = s.substr(1, s.length - 1);
+      tokens.push(new AdverbToken("/", function(vn) { 
+                    var f = function(noun) {
+                      if (noun.isList()) {                        
+                        var r = noun.value[0];
+                        for(var i=1; i < noun.value.length; ++i) {
+                          r = vn.dApply(r, noun.value[i]);                     
+                        }
+                        return r;
+                      }
+                      return noun;
+                    }
+                    var t = new VerbToken(vn.value + "/", f, null); 
+                    t.mApply = ApplyToken.prototype.mApply;
+                    return t;
+                  }));
+      continue;
+    }
+
+    if (s.length >= 1 && s[0] == '&') {
+      s = s.substr(1, s.length - 1);
+      tokens.push(new ConjunctionToken("&", function(vn1, vn2) { 
+                    var f = function(noun) {
+                      if (vn1.isVerb() && vn2.isNoun())
+                        return vn1.dApply(noun, vn2);
+                      if (vn1.isNoun() && vn2.isVerb())
+                        return vn2.dApply(vn1, noun);
+                      if (vn1.isVerb() && vn2.isVerb())
+                        throw "verb/verb conjunction not implemented";
+                    }
+                    return new VerbToken(vn1.value + "&" + vn2.value, f, null);                    
+                  }));
+      continue;
+    }
+
+    if (s.length >= 1 && s[0] == '(') {
+      s = s.substr(1, s.length - 1);
+      tokens.push(new LeftParenToken());
+      continue;
+    }
+
+    if (s.length >= 1 && s[0] == ')') {
+      s = s.substr(1, s.length - 1);
+      tokens.push(new RightParenToken());
+      continue;
+    }
+
+    if (s.search(/\s+/) == 0) {
+      token = s.match(/\s+/);
+      object = token[0];
+      s = s.substr(object.length, s.length - object.length);
+      continue;
+    }
+
+    s = "";
+  }
+  return tokens;
+}
+
+function checkRules(queue, stack) {
+    var slen = stack.length;
+    // Check stack for patterns
+    // Monad rule
+    if (slen >= 3 &&
+        stack[0].isEdge() &&
+        stack[1].isVerb() &&
+        stack[2].isNoun()) {
+      var verb = stack[1];
+      var noun = stack[2];
+      stack.splice(1,2, verb.mApply(noun));
+      return "monad";
+    }
+
+    // Second monad rule
+    if (slen >= 4 &&
+        stack[0].isEavn() &&
+        stack[1].isVerb() &&
+        stack[2].isVerb() &&
+        stack[3].isNoun()) {
+      stack.splice(2,2, stack[2].mApply(stack[3]));
+      return "monad2";
+    }
+
+    // Dyad rule
+    if (slen >= 4 &&
+        stack[0].isEavn() &&
+        stack[1].isNoun() &&
+        stack[2].isVerb() &&
+        stack[3].isNoun()) {
+      stack.splice(1,3, stack[2].dApply(stack[1], stack[3]));
+      return "dyad";
+    }
+
+    // Adverb rule
+    if (slen >= 3 &&
+        stack[0].isEavn() &&
+        stack[1].isVn() &&
+        stack[2].isAdverb()) {
+      stack.splice(1,2, stack[2].mApply(stack[1]));
+      return "adv";
+    }
+
+    // Conjuction rule
+    if (slen >= 4 &&
+        stack[0].isEavn() &&
+        stack[1].isVn() &&
+        stack[2].isConjunction() &&
+        stack[3].isVn()) {
+      stack.splice(1,3, stack[2].dApply(stack[1], stack[3]));
+      return "conj";
+    }
+
+    // Trident rule
+    if (slen >= 4 &&
+        stack[0].isEavn() &&
+        stack[1].isVn() &&
+        stack[2].isVerb() &&
+        stack[3].isVerb()) {
+      var f = stack[1];
+      var g = stack[2];
+      var h = stack[3];
+      var func = function(noun) {
+        if (f.isNoun())
+          return g.dApply(f, h.mApply(noun));
+        else
+          return g.dApply(f.mApply(noun), h.mApply(noun));
+      }
+      stack.splice(1,3, new VerbToken(stack[1].value + " " + stack[2].value + " " + stack[3].value, func));
+      return "trident";
+    }
+
+    // Bident rule
+    if (slen >= 3 &&
+        stack[0].isEdge() &&
+        stack[1].isCavn() &&
+        stack[2].isCavn()) {
+      var cavn1 = stack[1];
+      var cavn2 = stack[2];
+      var result;
+      if (cavn1.isVerb() && cavn2.isVerb()) {
+        result = null; // verb (hook)
+      }
+      else if (cavn1.isAdverb() && cavn2.isAdverb()) {
+        result = null; // adverb
+      }
+      else if (cavn1.isConjunction() && cavn2.isVerb()) {
+        result = null; // adverb
+      }
+      else if (cavn1.isConjunction() && cavn2.isNoun()) {
+        result = null; // adverb
+      }
+      else if (cavn1.isNoun() && cavn2.isConjunction()) {
+        var func = function(verb) {
+                      var conjunction = cavn2.dApply(cavn1, verb);
+                      var f = function(noun) {
+                         return conjunction.mApply(noun);
+                      }
+
+                      var t = new VerbToken(cavn1.value + cavn2.value + verb.value, f, null);
+                      t.mApply = ApplyToken.prototype.mApply;
+                      return t;
+                   };
+
+        result = new AdverbToken(cavn1.value + cavn2.value, func);
+      }
+      else if (cavn1.isVerb() && cavn2.isConjunction()) {
+        result = null; // adverb
+      }
+      stack.splice(1,2, result);
+      return "bident";
+    }
+
+    // Assignment rule
+    if (slen >= 3 &&
+        stack[0].isNN() &&
+        stack[1].isAssignment() &&
+        stack[2].isCavn()) {
+      primitives[stack[0].value] = stack[2];
+      stack.splice(0,3, stack[2]);
+      return "assign";
+    }
+
+    // Parenthesis rule
+    if (slen >= 3 &&
+        stack[0].isLeftParen() &&
+        stack[1].isCavn() &&
+        stack[2].isRightParen()) {
+      stack.splice(0,3, stack[1]);
+      return "paren";
+    }
+	    
+   return null;
+}
+
+function debugTokens(tokens) {
+  var t = document.getElementById('tokens');
+  t.innerHTML = "";
+  for(var i=0; i < tokens.length; ++i) {
+    t.innerHTML += " " + tokens[i].toString();
+  }
+}
+
+function doeval(text) {
+  var queue = tokenize(text);
+  var debug = [];
+  debugTokens(queue);
+  var stack = [];
+  while (queue.length > 0) {
+    var queueCopy = queue.slice(0);
+    var stackCopy = stack.slice(0);
+    var rule;
+    do {
+      queueCopy = queue.slice(0);
+      stackCopy = stack.slice(0);
+      rule = checkRules(queue, stack);   
+      debug.push({ queue: queueCopy, stack: stackCopy, rule: rule});
+    } while(rule);
+    var e = queue.pop();    
+    stack.unshift(e.isName() && primitives[e.value] && primitives[e.value].isNoun() ? primitives[e.value] : e);
+  }
+
+  do {
+    queueCopy = queue.slice(0);
+    stackCopy = stack.slice(0);
+    rule = checkRules(queue, stack);
+    debug.push({ queue: queueCopy, stack: stackCopy, rule: rule});
+    displayDebug(debug);
+  } while (rule);
+  debug.push({ queue: queue, stack: stack, rule: null});
+
+  displayDebug(debug);
+  return stack;
+}
+
+function displayDebug(debug) {
+  var maxStack = 0;
+  var maxQueue = 0;
+  for(var i = 0; i < debug.length; ++i) {
+    maxStack = Math.max(debug[i].stack.length, maxStack);
+    maxQueue = Math.max(debug[i].queue.length, maxQueue);
+  }
+
+  var html = [];
+  html.push("<table border='1'><tr><th>queue</th><th colspan='");
+  html.push(maxStack);
+  html.push("'>stack</th><th>rule</th></tr>");
+  for(var i = 0; i < debug.length; ++i) {
+    html.push("<tr><td>");
+    if (debug[i].queue.length == 0) {
+      html.push("&nbsp;");
+    }
+    for (var j = 0; j < debug[i].queue.length; ++j) {
+      html.push(debug[i].queue[j].toString());
+      html.push(" ");
+    }
+    html.push("</td>");
+    for (var j = 0; j < maxStack; ++j) {
+      if (j >= debug[i].stack.length) {
+        html.push("<td>&nbsp</td>");
+      }
+      else {
+        html.push("<td>");
+        html.push(debug[i].stack[j].toString());
+        html.push("</td>");
+      }
+    }
+    html.push("<td>");
+    html.push(debug[i].rule ? debug[i].rule : "&nbsp");
+    html.push("</td></tr>");
+  }  
+  html.push("</table>");
+  document.getElementById('steps').innerHTML=html.join("");
+}
+
+function jeval() {
+  var text = document.getElementById('expr').value;
+  var pre = document.getElementById('result');
+  pre.innerHTML = doeval(text)[1].toString();
+}
+    </script>
+    <textarea id='expr'></textarea>
+    <button onclick="jeval();">Eval</button>
+    <p>Result</p>
+    <pre id='result'></pre>
+    <p>Tokens</p>
+    <pre id='tokens'></pre>
+    <p>Steps</p>
+    <div id='steps'></div>
+  </body>
+</html>
