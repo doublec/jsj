@@ -13,6 +13,11 @@ primitives are implemented.
 I've made it available on github in case anyone wants to hack on it
 and improve it.
 
+Simple examples that work are things like:
+
+  1 2 + 3 4
+  (+/%#) 1 2 3 
+
 License
 =======
 Redistribution and use in source and binary forms, with or without
