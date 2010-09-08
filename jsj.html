@@ -22,12 +22,14 @@ Token.prototype.isName        = function() {  return false; }
 Token.prototype.isLeftParen   = function() {  return false; }
 Token.prototype.isRightParen  = function() {  return false; }
 Token.prototype.isList        = function() {  return false; }
+Token.prototype.isArray       = function() {  return false; }
 Token.prototype.isNumber      = function() {  return false; }
 Token.prototype.isEdge        = function() {  return this.isMark() || this.isAssignment() || this.isLeftParen(); }
 Token.prototype.isEavn        = function() {  return this.isEdge() || this.isAdverb() || this.isVerb() || this.isNoun(); }
 Token.prototype.isVn          = function() {  return this.isVerb() || this.isNoun(); }
 Token.prototype.isCavn        = function() {  return this.isConjunction() || this.isAdverb() || this.isVerb() || this.isNoun(); }
 Token.prototype.isNN          = function() {  return this.isNoun() || this.isName(); }
+Token.prototype.getLength     = function() {  return 0; } 
 
 function MarkToken() {
   this.value = "<mark>";
@@ -63,12 +65,13 @@ RightParenToken.prototype = new Token();
 RightParenToken.prototype.isRightParen  = function() {  return true; }
 
 function ListToken(value) {
+  this.shape = [new NumberToken(value.length)];
   this.value = value;
   return this;
 }
 
 ListToken.prototype = new Token();
-ListToken.prototype.toString      = function() {  
+ListToken.prototype.toString = function() {  
   var s = [];
   for(var i = 0;i < this.value.length; ++i) {
     s.push(this.value[i].toString());
@@ -77,6 +80,66 @@ ListToken.prototype.toString      = function() {
 }
 ListToken.prototype.isNoun        = function() {  return true; }
 ListToken.prototype.isList        = function() {  return true; }
+
+function ArrayToken(shape, value) {
+  this.shape = shape;
+  this.value = value;
+  return this;
+}
+
+ArrayToken.prototype = new Token();
+ArrayToken.prototype.toString = function() {
+  var s = [];
+  if (this.shape.length == 1) {
+    return (new ListToken(this.value)).toString();
+  }
+  else if(this.shape.length == 2) {
+    var rows = this.shape[0].value;
+    var cols = this.shape[1].value;
+
+    var i = 0;
+    for(var r = 0; r < rows; ++r) {
+      for(var c = 0; c < cols; ++c) {
+        if (c != 0)
+          s.push(" ");
+
+        s.push(this.value[i++].toString());
+      }
+      s.push("\n");
+    }
+  } 
+  else if(this.shape.length == 3) {
+    var planes = this.shape[0].value;
+    var rows = this.shape[1].value;
+    var cols = this.shape[2].value;
+
+    var i = 0;
+    for(var p = 0; p < planes; ++p) {
+      for(var r = 0; r < rows; ++r) {
+        for(var c = 0; c < cols; ++c) {
+          if (c != 0)
+            s.push(" ");
+
+          s.push(this.value[i++].toString());
+        }
+        s.push("\n");
+      }
+      s.push("\n");
+    }
+  }
+  return s.join("");
+}
+ArrayToken.prototype.isNoun        = function() {  return true; }
+ArrayToken.prototype.isList        = function() {  return true; }
+ArrayToken.prototype.isArray       = function() {  return true; }
+ArrayToken.prototype.getLength     = function() {
+  var len = this.shape.length;
+  var n = 1;
+  for(var i = 0; i < len; ++i) {
+    n *= this.shape[i].value;
+  }
+  return n;
+}
 
 function NumberToken(value) {
   this.value = value;
@@ -148,22 +211,25 @@ VerbToken.prototype.dApply = function(noun1, noun2) {
   if (noun1.isNumber() && noun2.isNumber()) 
     return this.dyad(noun1, noun2);
   if (noun1.isList() && noun2.isNumber()) {
+    var len = noun1.getLength();
     var r = [];
-    for(var i=0; i < noun1.value.length; ++i)
+    for(var i=0; i < len; ++i)
       r.push(this.dyad(noun1.value[i], noun2));
-    return new ListToken(r);
+    return new ArrayToken(noun1.shape, r);
   }
   if (noun2.isList() && noun1.isNumber()) {
+    var len = noun2.getLength();
     var r = [];
-    for(var i=0; i < noun2.value.length; ++i)
+    for(var i=0; i < len; ++i)
       r.push(this.dyad(noun1, noun2.value[i]));
-    return new ListToken(r);
+    return new ArrayToken(noun2.shape, r);
   }
   if (noun1.isList() && noun2.isList()) {
+    var len = noun1.getLength();
     var r = [];
-    for(var i=0; i < noun1.value.length; ++i)
+    for(var i=0; i < len; ++i)
       r.push(this.dyad(noun1.value[i],  noun2.value[i]));
-    return new ListToken(r);
+    return new ArrayToken(noun1.shape, r);
   }
   
   return this.dyad(noun1, noun2);
@@ -213,6 +279,29 @@ var primitives = {
                        return new NumberToken(n1.isList() ? n1.value.length : 1);
                      },
                      null),
+  "$": new VerbToken("$",
+                     function(n1) {
+                       return new ListToken(n1.isList() ? n1.shape : []);
+                     },
+		     function(n1, n2) {
+                       var r = undefined;
+                       if (!n1.isList()) {
+                         n1 = new ListToken([n1]);
+                       }
+                       if (n1.isList()) {
+                         n2 = n2.isList() ? n2 : new ListToken([n2]);
+                         var a = [];
+                         var len = 1;
+                         for (var i = 0; i < n1.value.length; ++i) {
+                           len *= n1.value[i].value;
+                         }
+                         for (var i = 0; i < len; ++i) {
+                           a.push(n2.value[i % n2.value.length]);
+                         }
+                         r = new ArrayToken(n1.value, a); 
+                       } 
+                       return r;
+                     }),
   "+": new VerbToken("+",
                      null,
 		     function(n1, n2) {
@@ -263,6 +352,8 @@ var primitives = {
 }
 
 primitives[","].dApply = ApplyToken.prototype.dApply;
+primitives["$"].dApply = ApplyToken.prototype.dApply;
+primitives["$"].mApply = ApplyToken.prototype.mApply;
 primitives["#"].mApply = ApplyToken.prototype.mApply;
 
 function tokenize(s) {
@@ -284,7 +375,9 @@ function tokenize(s) {
         tokens[tokens.length-1] = new ListToken([tokens[tokens.length-1], num]);
       }
       else if (tokens.length > 0 && tokens[tokens.length-1].isList()) {
-        tokens[tokens.length-1].value.push(num);
+        var l = tokens[tokens.length-1];
+        l.value.push(num);
+        l.shape = [new NumberToken(l.value.length)];
       }
       continue;
     }
@@ -319,6 +412,7 @@ function tokenize(s) {
                           s[0] == '*' ||
                           s[0] == ',' ||
                           s[0] == '#' ||
+                          s[0] == '$' ||
                           s[0] == '!' ||
                           s[0] == '%')) {
       tokens.push(primitives[s[0]]);

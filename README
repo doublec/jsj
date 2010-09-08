@@ -16,6 +16,8 @@ Very few primitives are currently implemented.
 I've made it available on github in case anyone wants to hack on it
 and improve it.
 
+Examples
+========
 Simple examples that work are things like:
 
   1 2 + 3 4
@@ -24,6 +26,12 @@ Simple examples that work are things like:
 Different ways of computing factorial
   ! 8
   */1+i.8
+
+Array's
+  2 3 $ 5 6 7 8 9 10
+  2 2 3 $ 5 6 7 8 9 10
+  3 $ 1
+  $ (2 3 $ 5 6 7 8)
 
 License
 =======
