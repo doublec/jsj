@@ -241,7 +241,16 @@ var primitives = {
                      },
 		     function(n1, n2) {
                        return new NumberToken(n1.value / n2.value);
-                     })
+                     }),
+  "!": new VerbToken("!",
+		     function(n1) {
+                       var r = 1;
+                       for (var i=1; i <= n1.value; ++i) {
+                         r *= i;
+                       }
+                       return new NumberToken(r);
+                     },
+		     null)
 }
 
 primitives[","].dApply = ApplyToken.prototype.dApply;
@@ -298,6 +307,7 @@ function tokenize(s) {
                           s[0] == '*' ||
                           s[0] == ',' ||
                           s[0] == '#' ||
+                          s[0] == '!' ||
                           s[0] == '%')) {
       tokens.push(primitives[s[0]]);
       s = s.substr(1, s.length - 1);

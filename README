@@ -20,6 +20,7 @@ Simple examples that work are things like:
 
   1 2 + 3 4
   (+/%#) 1 2 3 
+  ! 0 1 2 3 4
 
 License
 =======
