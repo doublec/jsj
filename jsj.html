@@ -242,6 +242,15 @@ var primitives = {
 		     function(n1, n2) {
                        return new NumberToken(n1.value / n2.value);
                      }),
+  "i.": new VerbToken("i.",
+		     function(n1) {
+                       var r = [];
+                       for(var i=0; i < n1.value; ++i) {
+                         r.push(new NumberToken(i))
+                       }
+                       return new ListToken(r);
+                     },
+                     null),
   "!": new VerbToken("!",
 		     function(n1) {
                        var r = 1;
@@ -279,6 +288,15 @@ function tokenize(s) {
       }
       continue;
     }
+
+    if (s.length >= 2 &&
+         (s[0] == '*' && s[1] == ':') ||
+         (s[0] == 'i' && s[1] == '.')) {
+      tokens.push(primitives[s[0]+s[1]]);
+      s = s.substr(2, s.length - 1);
+      continue;
+    }
+
     if (s.search(/[a-zA-Z]+/) == 0) {
       token = s.match(/[a-zA-Z]+/);
       object = token[0];
@@ -295,12 +313,6 @@ function tokenize(s) {
       continue;
     }
 
-
-    if (s.length >= 2 && s[0] == '*' && s[1] == ':') {
-      tokens.push(primitives[s[0]+s[1]]);
-      s = s.substr(2, s.length - 1);
-      continue;
-    }
 
     if (s.length >= 1 && (s[0] == '+' ||
                           s[0] == '-' ||

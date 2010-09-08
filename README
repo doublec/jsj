@@ -20,7 +20,10 @@ Simple examples that work are things like:
 
   1 2 + 3 4
   (+/%#) 1 2 3 
-  ! 0 1 2 3 4
+
+Different ways of computing factorial
+  ! 8
+  */1+i.8
 
 License
 =======
