@@ -7,8 +7,11 @@ written in JavaScript. For more information on J, see:
   http://jsoftware.com/
 
 I wrote it to learn more about the J evaluation model. I followed
-the outline of the alogorithm from the J documentation. Very few
-primitives are implemented.
+the outline of the algorithm from the J Dictionary, Section E:
+
+  http://www.jsoftware.com/help/dictionary/dicte.htm
+
+Very few primitives are currently implemented.
 
 I've made it available on github in case anyone wants to hack on it
 and improve it.
@@ -43,7 +46,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Feedback
 ========
-I host this on githib:
+I host this on github:
+
   http://github.com/doublec/jsj
 
 Feel free to clone, hack away, suggest patches, etc. I can be reached
